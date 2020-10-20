@@ -1,0 +1,63 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "elixirLS.projectDir": "./servers/exilp",
+    "elixirLS.mixTarget": "dev",
+    "elixirLS.mixEnv": "dev",
+    "elixirLS.dialyzerEnabled": true,
+    "elixirLS.suggestSpecs": true,
+    "elixirLS.trace.server": "verbose",
+    "actionButtons": {
+      "defaultColor": "white",
+      "loadNpmCommands": false,
+      "reloadButton": null,
+      "commands": [
+        {
+          "name": "Compile",
+          "singleInstance": true,
+          "command": "cd ${workspaceFolder}/servers/exilp && mix compile"
+        },
+        {
+          "name": "Test",
+          "singleInstance": true,
+          "command": "cd ${workspaceFolder}/servers/exilp && mix test"
+        },
+        {
+          "name": "Check",
+          "singleInstance": true,
+          "command": "cd ${workspaceFolder}/servers/exilp && mix dialyzer"
+        }
+      ]
+    }
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "type": "mix_task",
+        "name": "mix (Default task)",
+        "request": "launch",
+        "projectDir": "${workspaceRoot}/servers/exilp"
+      },
+      {
+        "type": "mix_task",
+        "name": "mix test",
+        "request": "launch",
+        "task": "test",
+        "taskArgs": [
+          "--trace"
+        ],
+        "startApps": true,
+        "projectDir": "${workspaceRoot}/servers/exilp",
+        "requireFiles": [
+          "test/**/test_helper.exs",
+          "test/**/*_test.exs"
+        ]
+      }
+    ]
+  }
+}
