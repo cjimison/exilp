@@ -1,0 +1,4 @@
+---
+- name: Ingress for the Application using Docker Desktop
+  debug:
+    msg: "Application ingress not implmeneted yet"

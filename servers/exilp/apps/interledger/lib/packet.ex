@@ -21,11 +21,11 @@
 # SOFTWARE.
 defmodule Interledger.Packet do
   @moduledoc """
-  Decodes a binary block of data into the correct data types
+  Manages the Base layer of interledger packet types.
   """
 
   # ----------------------------------------------------------------------------
-  # Module Uses, Requires and Imports
+  # Module  Requires, Uses and Imports
   # ----------------------------------------------------------------------------
   require Logger
 
@@ -38,8 +38,8 @@ defmodule Interledger.Packet do
           | :ilp_packet_reject
           | :ilp_packet_unknown
 
-  @type ilp_prepare :: {integer, DateTime.t(), binary, String.t(), binary}
-  @type ilp_fulfill :: {integer, binary}
+  @type ilp_prepare :: {integer, DateTime.t(), non_neg_integer, String.t(), binary}
+  @type ilp_fulfill :: {integer, non_neg_integer}
   @type ilp_reject :: {ilp_packet_error, String.t(), String.t(), binary}
   @type ilp_packet_error ::
           :f00_bad_request
@@ -68,29 +68,25 @@ defmodule Interledger.Packet do
   # ----------------------------------------------------------------------------
   # Module Contants
   # ----------------------------------------------------------------------------
-  # @maxAddressLen 1023
 
   # ----------------------------------------------------------------------------
   # Public API
   # ----------------------------------------------------------------------------
 
   @doc """
-  Parse out packet types from the binary payload
+  Parse out packet types from the binary envelope.  ILP uses this to define
+  the message type and then based on this value decode the rest
   """
   @spec parse(binary()) ::
           {:ok, {ilp_packet_type, ilp_prepare | ilp_fulfill | ilp_reject}}
           | {:error, term}
   def parse(data) do
     # Read the packet type
-    <<
-      type::size(8)-unsigned-big,
-      # This should be the length of the packet
-      len::size(24)-unsigned-big,
-      data::binary
-    >> = data
+    {type, data} = Utils.OER.decodeFixedUint(8, data)
+    {data, _rest} = Utils.OER.decodeVariableBinary(data)
 
     toIlpPacketType(type)
-    |> toIlpPacket(len, data)
+    |> toIlpPacket(data)
   end
 
   # ----------------------------------------------------------------------------
@@ -98,77 +94,59 @@ defmodule Interledger.Packet do
   # ----------------------------------------------------------------------------
 
   # Parse out the prepare packet
-  defp toIlpPacket(:ilp_packet_prepare, _len, rawData) do
-    <<
-      # Read out the amount value
-      amount::size(64)-unsigned-big,
-      # Read out the expire Timestamp
-      expY::size(32)-bitstring,
-      expM::size(16)-bitstring,
-      expD::size(16)-bitstring,
-      expH::size(16)-bitstring,
-      expm::size(16)-bitstring,
-      expS::size(16)-bitstring,
-      expmm::size(24)-bitstring,
+  defp toIlpPacket(:ilp_packet_prepare, data) do
+    # Read out the amount
+    {amount, data} = Utils.OER.decodeFixedUint(64, data)
 
-      # Read out the condition field
-      con::size(256)-unsigned-big,
+    # Read out the Timestamp
+    {strTime, data} = Utils.OER.decodeFixedTimestamp(data)
 
-      # Read out the distenation ILP address
-      # NOTE:  This does a thing where if the high bit is 1 then the size
-      #        is the other 7 bits + the next 8 bits
-      # TODO: Fix this up to handle longer addresses
-      destLen::size(8)-unsigned-big,
-      dest::size(destLen)-binary,
-      data::binary
-    >> = rawData
+    # Read out the condition field
+    {con, data} = Utils.OER.decodeFixedUint(256, data)
 
-    strTime = "#{expY}-#{expM}-#{expD}T#{expH}:#{expm}:#{expS}.#{expmm}Z"
+    # Read out the Destination
+    {dest, data} = Utils.OER.decodeVariableBinary(data)
+
+    # And the rest of the packet payload that shouldn't be touched
+    {data, _} = Utils.OER.decodeVariableBinary(data)
+
     {:ok, expiresAt, 0} = DateTime.from_iso8601(strTime)
     {:ok, {:ilp_packet_prepare, {amount, expiresAt, con, dest, data}}}
   end
 
   # Parse out the fulfill packet
-  defp toIlpPacket(:ilp_packet_fulfill, _len, rawData) do
-    <<
-      # Read out the condition field
-      fulfillment::size(256)-unsigned-big,
+  defp toIlpPacket(:ilp_packet_fulfill, data) do
+    # Read out the condition field
+    {fulfillment, data} = Utils.OER.decodeFixedUint(256, data)
 
-      # Read out the distenation ILP address
-      # NOTE:  This does a thing where if the high bit is 1 then the size
-      #        is the other 7 bits + the next 8 bits
-      # TODO: Fix this up to handle longer addresses
-      data::binary
-    >> = rawData
+    # And the rest of the packet payload that shouldn't be touched
+    {data, _} = Utils.OER.decodeVariableBinary(data)
 
     {:ok, {:ilp_packet_fulfill, {fulfillment, data}}}
   end
 
   # Parse a reject packet.
-  defp toIlpPacket(:ilp_packet_reject, _len, rawData) do
+  defp toIlpPacket(:ilp_packet_reject, data) do
     <<
       # Read out the condition field
       code::size(24)-bitstring,
-
-      # Read out the distenation ILP address
-      # NOTE:  This does a thing where if the high bit is 1 then the size
-      #        is the other 7 bits + the next 8 bits
-      # TODO: Fix this up to handle longer addresses
-      destLen::size(8)-unsigned-big,
-      dest::size(destLen)-binary,
-
-      # Read out the Message string.
-      # TODO:  This feels like a variable length string
-      msgLen::size(8)-unsigned-big,
-      msg::size(msgLen)-binary,
       data::binary
-    >> = rawData
+    >> = data
+
+    # Read out who triggered this
+    {dest, data} = Utils.OER.decodeVariableBinary(data)
+
+    # Read out the message
+    {msg, data} = Utils.OER.decodeVariableBinary(data)
+
+    # And the rest of the packet payload that shouldn't be touched
+    {data, _} = Utils.OER.decodeVariableBinary(data)
 
     {:ok, {:ilp_packet_reject, {toError(code), dest, msg, data}}}
   end
 
   # I don't know what the packet type is so just error out
-  defp toIlpPacket(:ilp_packet_unknown, _, _), do: {:error, :ilp_packet_unknown}
+  defp toIlpPacket(:ilp_packet_unknown, _), do: {:error, :ilp_packet_unknown}
 
   # Get the atom value of the type based on the value read in.
   defp toIlpPacketType(12), do: :ilp_packet_prepare

@@ -1,0 +1,440 @@
+---
+# Create the namespace for Monitoring
+- name: Monitoring Namespace
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    name: "monitoring"
+    api_version: v1
+    kind: "Namespace"
+
+- name: Define Cluster Role
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1beta1
+      kind: ClusterRole
+      metadata:
+        name: monitoring
+      rules:
+        - apiGroups: [""]
+          resources:
+            - nodes
+            - nodes/proxy
+            - services
+            - endpoints
+            - pods
+          verbs: ["get", "list", "watch"]
+        - apiGroups:
+            - extensions
+          resources:
+            - ingresses
+          verbs: ["get", "list", "watch"]
+        - nonResourceURLs: ["/metrics"]
+          verbs: ["get"]
+
+- name: Define ClusterRoleBinding
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1beta1
+      kind: ClusterRoleBinding
+      metadata:
+        name: monitoring
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: monitoring
+      subjects:
+        - kind: ServiceAccount
+          name: default
+          namespace: monitoring
+
+- name: What is my IP Address
+  debug:
+    var: hostvars[inventory_hostname]['ansible_default_ipv4']['address']
+
+- name: Define ConfigMap
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: prometheus-server-conf
+        labels:
+          name: prometheus-server-conf
+        namespace: monitoring
+      data:
+        prometheus.yml: |-
+          global:
+            scrape_interval: 15s
+            external_labels:
+              monitor: 'codelab-monitor'
+          scrape_configs:
+            - job_name: 'exilp'
+              scrape_interval: 5s
+              static_configs:
+                - targets: ['{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:8881']
+#prometheus.rules: |-
+#  groups:
+#  - name: devopscube demo alert
+#    rules:
+#    - alert: High Pod Memory
+#      expr: sum(container_memory_usage_bytes) > 1
+#      for: 1m
+#      labels:
+#        severity: slack
+#      annotations:
+#        summary: High Memory Usage
+#prometheus.yml: |-
+#  global:
+#    scrape_interval: 5s
+#    evaluation_interval: 5s
+#  rule_files:
+#    - /etc/prometheus/prometheus.rules
+#  alerting:
+#    alertmanagers:
+#    - scheme: http
+#      static_configs:
+#      - targets:
+#        - "alertmanager.monitoring.svc:9093"
+#  scrape_configs:
+#    - job_name: 'kubernetes-apiservers'
+#      kubernetes_sd_configs:
+#      - role: endpoints
+#      scheme: https
+#      tls_config:
+#        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+#      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+#      relabel_configs:
+#      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+#        action: keep
+#        regex: default;kubernetes;https
+#    - job_name: 'kubernetes-nodes'
+#      scheme: https
+#      tls_config:
+#        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+#      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+#      kubernetes_sd_configs:
+#      - role: node
+#      relabel_configs:
+#      - action: labelmap
+#        regex: __meta_kubernetes_node_label_(.+)
+#      - target_label: __address__
+#        replacement: kubernetes.default.svc:443
+#      - source_labels: [__meta_kubernetes_node_name]
+#        regex: (.+)
+#        target_label: __metrics_path__
+#        replacement: /api/v1/nodes/${1}/proxy/metrics
+#
+#    - job_name: 'kubernetes-pods'
+#      kubernetes_sd_configs:
+#      - role: pod
+#      relabel_configs:
+#      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+#        action: keep
+#        regex: true
+#      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+#        action: replace
+#        target_label: __metrics_path__
+#        regex: (.+)
+#      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+#        action: replace
+#        regex: ([^:]+)(?::\d+)?;(\d+)
+#        replacement: $1:$2
+#        target_label: __address__
+#      - action: labelmap
+#        regex: __meta_kubernetes_pod_label_(.+)
+#      - source_labels: [__meta_kubernetes_namespace]
+#        action: replace
+#        target_label: kubernetes_namespace
+#      - source_labels: [__meta_kubernetes_pod_name]
+#        action: replace
+#        target_label: kubernetes_pod_name
+#    - job_name: 'kubernetes-cadvisor'
+#      scheme: https
+#      tls_config:
+#        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+#      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+#      kubernetes_sd_configs:
+#      - role: node
+#      relabel_configs:
+#      - action: labelmap
+#        regex: __meta_kubernetes_node_label_(.+)
+#      - target_label: __address__
+#        replacement: kubernetes.default.svc:443
+#      - source_labels: [__meta_kubernetes_node_name]
+#        regex: (.+)
+#        target_label: __metrics_path__
+#        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+#
+#    - job_name: 'kubernetes-service-endpoints'
+#      kubernetes_sd_configs:
+#      - role: endpoints
+#      relabel_configs:
+#      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+#        action: keep
+#        regex: true
+#      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+#        action: replace
+#        target_label: __scheme__
+#        regex: (https?)
+#      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+#        action: replace
+#        target_label: __metrics_path__
+#        regex: (.+)
+#      - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+#        action: replace
+#        target_label: __address__
+#        regex: ([^:]+)(?::\d+)?;(\d+)
+#        replacement: $1:$2
+#      - action: labelmap
+#        regex: __meta_kubernetes_service_label_(.+)
+#      - source_labels: [__meta_kubernetes_namespace]
+#        action: replace
+#        target_label: kubernetes_namespace
+#      - source_labels: [__meta_kubernetes_service_name]
+#        action: replace
+#        target_label: kubernetes_name
+
+- name: Define Prometheus Deployment
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: prometheus-deployment
+        namespace: monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: prometheus-server
+        template:
+          metadata:
+            labels:
+              app: prometheus-server
+          spec:
+            containers:
+              - name: prometheus
+                image: prom/prometheus:v2.22.1
+                args:
+                  - "--config.file=/etc/prometheus/prometheus.yml"
+                  - "--storage.tsdb.path=/prometheus/"
+                ports:
+                  - containerPort: 9090
+                volumeMounts:
+                  - name: prometheus-config-volume
+                    mountPath: /etc/prometheus/
+                  - name: prometheus-storage-volume
+                    mountPath: /prometheus/
+            volumes:
+              - name: prometheus-config-volume
+                configMap:
+                  defaultMode: 420
+                  name: prometheus-server-conf
+
+              - name: prometheus-storage-volume
+                emptyDir: {}
+- name: Manage Prometheus Service
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: prometheus-service
+        namespace: "monitoring"
+        #annotations:
+        #  cloud.google.com/neg: '{"ingress": true}'
+      spec:
+        ports:
+          - port: 9090
+            protocol: TCP
+            targetPort: 9090
+        selector:
+          app: prometheus-server
+        type: NodePort
+
+#- name: Setup Grafana Service
+#  k8s:
+#    state: "{{deployment_state}}"
+#    wait: yes
+#    definition:
+#      apiVersion: v1
+#      kind: Service
+#      metadata:
+#        name: prometheus-service
+#        namespace: "monitoring"
+#        annotations:
+#          prometheus.io/scrape: "true"
+#          prometheus.io/port: "9090"
+#      spec:
+#        selector:
+#          app: prometheus-server
+#        type: NodePort
+#        ports:
+#          - port: 8080
+#            targetPort: 9090
+#            nodePort: 30000
+
+- name: Setup Grafana Map 1
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-datasources
+        namespace: "monitoring"
+      data:
+        prometheus.yaml: |-
+          {
+              "apiVersion": 1,
+              "datasources": [
+                {
+                  "access":"proxy",
+                  "editable": true,
+                  "name": "prometheus",
+                  "orgId": 1,
+                  "type": "prometheus",
+                  "url": "http://prometheus-service.monitoring.svc.cluster.local:9090",
+                  "version": 1
+                }
+              ]
+          }
+
+- name: Setup Grafana Map 2
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: grafana-config
+        namespace: "monitoring"
+      data:
+        all.yaml: |-
+          apiVersion: 1
+          providers:
+            - name: EXILP
+              orgId: 1
+              folder: ""
+              folderUid: ""
+              type: file
+              disableDeletion: false
+              editable: true
+              updateIntervalSeconds: 10
+              allowUiUpdates: false
+              options:
+                path: /var/lib/grafana/dashboards
+
+#- name: Setup Grafana Map 3
+#  k8s:
+#    state: "{{deployment_state}}"
+#    wait: yes
+#    definition:
+#      apiVersion: v1
+#      kind: ConfigMap
+#      metadata:
+#        name: grafana-dashboards
+#        namespace: "monitoring"
+#      data:
+#        kube_deploy_metrics.json: '{{lookup("file", "kube_deploy_metrics.json") | from_json | to_json}}'
+#        cockroach_replicas.json: '{{lookup("file", "cockroach_replicas.json") | from_json | to_json}}'
+#        cockroach_runtime.json: '{{lookup("file", "cockroach_runtime.json") | from_json | to_json}}'
+#        cockroach_sql.json: '{{lookup("file", "cockroach_sql.json") | from_json | to_json}}'
+#        cockroach_storage.json: '{{lookup("file", "cockroach_storage.json") | from_json | to_json}}'
+
+- name: Create Deployment
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: grafana
+        namespace: "monitoring"
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: grafana
+        template:
+          metadata:
+            name: grafana
+            labels:
+              app: grafana
+          spec:
+            containers:
+              - name: grafana
+                image: grafana/grafana:latest
+                ports:
+                  - name: grafana
+                    containerPort: 3000
+                resources:
+                  limits:
+                    memory: "2Gi"
+                    cpu: "1000m"
+                  requests:
+                    memory: "1Gi"
+                    cpu: "500m"
+                volumeMounts:
+                  - mountPath: /var/lib/grafana
+                    name: grafana-storage
+                  - mountPath: /etc/grafana/provisioning/datasources
+                    name: grafana-datasources
+                    readOnly: false
+                  - mountPath: /etc/grafana/provisioning/dashboards
+                    name: grafana-config
+                    readOnly: false
+                  #- mountPath: /var/lib/grafana/dashboards
+                  #  name: grafana-dashboards
+                  #  readOnly: false
+            volumes:
+              - name: grafana-storage
+                emptyDir: {}
+              - name: grafana-datasources
+                configMap:
+                  defaultMode: 420
+                  name: grafana-datasources
+              - name: grafana-dashboards
+                configMap:
+                  defaultMode: 420
+                  name: grafana-dashboards
+              - name: grafana-config
+                configMap:
+                  defaultMode: 420
+                  name: grafana-config
+
+- name: Create Grafana Service
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: grafana
+        namespace: "monitoring"
+        annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "3000"
+      spec:
+        selector:
+          app: grafana
+        type: NodePort
+        ports:
+          - port: 3000
+            targetPort: 3000
+            nodePort: 32000

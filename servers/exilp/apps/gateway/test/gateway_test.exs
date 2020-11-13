@@ -19,11 +19,18 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule UtilsTest do
-  use ExUnit.Case
-  doctest Utils
+defmodule GatewayTest do
+  # ----------------------------------------------------------------------------
+  # Module Require, Import and Uses
+  # ----------------------------------------------------------------------------
 
-  # test "greets the world" do
-  #  assert Utils.hello() == :world
-  # end
+  use ExUnit.Case
+
+  doctest Gateway
+
+  # ----------------------------------------------------------------------------
+  # Tests
+  # ----------------------------------------------------------------------------
+  test "greets the world" do
+  end
 end

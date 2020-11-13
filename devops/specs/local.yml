@@ -1,0 +1,11 @@
+---
+# ------------------------------------------------------------------
+# Cluster Definition
+# This data should be the same for all deployments
+# that sh
+deployment_name: exilp
+project_name: exilp
+
+# ------------------------------------------------------------------
+# Environment configurations
+stage: dev

@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+
+#----------------------------------------------------------------------------
+# Imported Libraries
+#----------------------------------------------------------------------------
+import sys
+import argparse
+import os
+import subprocess
+#----------------------------------------------------------------------------
+# Setup Commandline Processing
+#----------------------------------------------------------------------------
+parser = argparse.ArgumentParser('Elixir Interledger DevOps Tool')
+
+# Because I am bad at remembers stuff, lets throw a "tips" block in
+parser.add_argument('--tips',
+                    help='Tips and examples of executing some common ops',
+                    action="store_true")
+
+parser.add_argument('--verbose',
+                    help='Runs the Ansible Commands in Full Verbose mode.',
+                    action="store_true")
+
+parser.add_argument('--setup_local',
+                    help='Installs any additional Ansible packages needed.',
+                    action="store_true")
+
+parser.add_argument('--deploy',
+                    help='Deploy Services to Kubernetes',
+                    action="store_true")
+
+parser.add_argument('--release',
+                    help='Release the services to Kubernetes',
+                    action="store_true")
+
+parser.add_argument('--ver',
+                    help='Image sha to use',
+                    action="store")
+
+parser.add_argument('--spec',
+                    help='The name of the spec you want to run',
+                    action="store")
+
+                
+#----------------------------------------------------------------------------
+# Parse the Commandline Arguments
+#----------------------------------------------------------------------------
+args = parser.parse_args()
+
+#----------------------------------------------------------------------------
+# Load some default arguments
+#----------------------------------------------------------------------------
+ansible_root = "./"
+spec = "local"
+ver = "latest"
+host = "docker"
+
+#if(None != args.ansible_root):
+#    ansible_root = args.ansible_root
+
+if(None != args.spec):
+    spec = args.spec
+
+if(None != args.ver):
+    ver = args.ver
+
+#----------------------------------------------------------------------------
+# Process Verbose Options
+#----------------------------------------------------------------------------
+verboseOpts = ''
+if(args.verbose):
+    verboseOpts = '-vvvv'
+
+#----------------------------------------------------------------------------
+# --tips Handler
+#----------------------------------------------------------------------------
+if args.tips:
+    print("""
+    """)
+
+#----------------------------------------------------------------------------
+# --setup_local
+#----------------------------------------------------------------------------
+elif args.setup_local:
+    os.system('pip install ansible==2.9.11')
+    os.system('mix local.hex --force')
+    os.system('mix local.rebar --force')
+
+    cmd = 'ansible-playbook -i {0}/inventory/hosts {0}/playbooks/install.yml {1}'
+    os.system(cmd.format(ansible_root, verboseOpts))
+    print(cmd)
+    out = os.system('pip install docker')
+    os.system('pip install openshift')
+    os.system('pip install requests')
+
+    print("Also given the order of ops you may see some failures.  Try running command a second time and report back if failures persist")
+
+elif args.deploy:
+    print("Deploy the environments")
+    cmd = 'ansible-playbook -i {0}/inventory/hosts {0}/playbooks/deploy.yml --extra-vars "env_state=start spec={1} ver={2} host={3}" {4}'
+    osCmd = cmd.format(ansible_root, spec, ver, host, verboseOpts)
+    os.system(osCmd)
+    print("Deployment Launched Complete")
+
+elif args.release:
+    print("Release the environments")
+    cmd = 'ansible-playbook -i {0}/inventory/hosts {0}/playbooks/deploy.yml --extra-vars "env_state=stop spec={1} ver={2} host={3}" {4}'
+    osCmd = cmd.format(ansible_root, spec, ver, host, verboseOpts)
+    os.system(osCmd)
+    print("Deployment Release Complete")
+
+#----------------------------------------------------------------------------
+# Unknown Operation
+#----------------------------------------------------------------------------
+else:
+    print("Unknown Command")

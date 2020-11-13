@@ -19,14 +19,14 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Service.Application do
-  @moduledoc false
+defmodule Gateway.Router.Metric.Handler do
+  @moduledoc """
+  """
 
   # ----------------------------------------------------------------------------
   # Module Require, Import and Uses
   # ----------------------------------------------------------------------------
-
-  use Application
+  require Logger
 
   # ----------------------------------------------------------------------------
   # Module Types
@@ -35,18 +35,28 @@ defmodule Service.Application do
   # ----------------------------------------------------------------------------
   # Module Contants
   # ----------------------------------------------------------------------------
+  # @mod __MODULE__
 
   # ----------------------------------------------------------------------------
-  # Public Api
+  # Public API
   # ----------------------------------------------------------------------------
 
-  @impl true
-  @spec start(any, any) :: {:error, any} | {:ok, pid}
-  def start(_type, _args) do
-    children = []
-    opts = [strategy: :one_for_one, name: Service.Supervisor]
-    Supervisor.start_link(children, opts)
-  end
+  @doc """
+  """
+  @spec setup :: :ok
+  def setup(), do: :ok
+
+  @doc """
+  A simple ping message
+  """
+  @spec ping :: <<_::32>>
+  def ping(), do: "pong"
+
+  @doc """
+  Get all the metrics from the system
+  """
+  @spec metrics() :: String.t()
+  def metrics(), do: Stats.metrics()
 
   # ----------------------------------------------------------------------------
   # Private API

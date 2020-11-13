@@ -1,0 +1,4 @@
+---
+- name: Ingress for the Monitoring System
+  debug:
+    msg: "Monitoring ingress not implmeneted yet"

@@ -19,87 +19,88 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Exilp.MixProject do
+defmodule Gateway.MixProject do
   @moduledoc """
-  Root Level Mix File
   """
 
   # ----------------------------------------------------------------------------
-  # Module Uses, Requires and Imports
+  # Module Requires, Import and Uses
+  # ----------------------------------------------------------------------------
+  use Mix.Project
+
+  # ----------------------------------------------------------------------------
+  # Module Types
   # ----------------------------------------------------------------------------
 
-  use Mix.Project
+  # ----------------------------------------------------------------------------
+  # Module Contants
+  # ----------------------------------------------------------------------------
 
   # ----------------------------------------------------------------------------
   # Public API
   # ----------------------------------------------------------------------------
 
-  @doc """
-  Setup the root project spec.  For this project we will be using umbrella
-  applications to break up the logic into chunks and enable us to turn on
-  and off different parts of the system.
-  """
   def project do
-    vsn =
-      File.read!("../../vsn.txt")
-      |> String.trim()
-
     [
-      apps_path: "apps",
-      version: vsn,
+      app: :gateway,
+      version: "0.1.0",
+      build_path: "../../_build",
+      config_path: "../../config/config.exs",
+      deps_path: "../../deps",
+      lockfile: "../../mix.lock",
+      elixir: "~> 1.11",
+      start_permanent: Mix.env() == :prod,
       elixirc_options: elixirc_options(Mix.env()),
       erlc_options: erlc_options(Mix.env()),
-      deps: deps(),
-      releases: releases(),
       test_coverage: [tool: ExCoveralls],
-      dialyzer: [plt_add_apps: [:ex_unit, :mix], ignore_warnings: "config/dialyzer.ignore"],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
+      deps: deps()
+    ]
+  end
+
+  # Run "mix help compile.app" to learn about applications.
+  def application do
+    [
+      extra_applications: [:logger],
+      mod: {Gateway.Application, []}
     ]
   end
 
   # ----------------------------------------------------------------------------
-  # Private APIs
+  # Private Api
   # ----------------------------------------------------------------------------
-
   defp deps do
     [
-      {:excoveralls, "~> 0.13", only: :test},
-      {:dialyxir, git: "https://github.com/jeremyjh/dialyxir.git", branch: "master"}
+      # Umbrella Apps
+      {:stats, in_umbrella: true},
+
+      # External Libs
+      {:cowlib, "~> 2.10", override: true},
+      {:cowboy, "~> 2.8", override: true},
+      {:plug_cowboy, "~> 2.4"},
+      {:elixir_uuid,
+       git: "https://github.com/cjimison/elixir-uuid.git", branch: "master", override: true},
+      {:jason, "~> 1.2"},
+      {:plug, git: "https://github.com/fortelabsinc/plug.git", branch: "master", override: true},
+      {:corsica, "~> 1.1"},
+      {:ex_json_schema, "~> 0.7.4"},
+
+      # Unit testing libs
+      {:excoveralls, "~> 0.13", only: :test}
     ]
   end
 
-  defp releases do
-    [
-      exilp: mainRelease()
-    ]
-  end
-
-  defp mainRelease do
-    [
-      include_executables_for: [:unix],
-      strip_beams: true,
-      include_erts: true,
-      applications: [
-        runtime_tools: :permanent,
-        utils: :permanent,
-        interledger: :permanent,
-        service: :permanent
-      ]
-    ]
-  end
-
-  # Manage some of the compile options for the project
   defp elixirc_options(:prod) do
-    [debug_info: false, all_warnings: true, warnings_as_errors: true]
+    [all_warnings: true, warnings_as_errors: true, debug_info: false]
   end
 
   defp elixirc_options(_) do
-    [debug_info: true, all_warnings: true, warnings_as_errors: true]
+    [all_warnings: true, warnings_as_errors: true, debug_info: true]
   end
 
   defp erlc_options(:prod) do

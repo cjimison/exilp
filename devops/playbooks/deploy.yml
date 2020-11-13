@@ -1,0 +1,30 @@
+---
+- hosts: localhost
+  gather_facts: yes
+
+  pre_tasks:
+    # Load the arguments for execution of the playbook
+    - include_tasks: tasks/args_load.yml
+    # For the monitoring
+    - include_tasks: tasks/monitoring/deploy.yml
+      #when: deployment_state == 'present'
+    - include_tasks: tasks/ingress/monitoring/{{host}}.yml
+      #when: deployment_state == 'present'
+    # Moving this to a top level pre-task because this steps can take some times
+    #- name: Setup the Nginx Ingress support for docker
+    #  shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.34.1/deploy/static/provider/cloud/deploy.yaml
+    #  when: host == "docker"
+
+  tasks:
+    # Cluster level tasks
+    # - include_tasks: tasks/namespaces.yml
+    # Deployment Level tasks
+    #- include_tasks: tasks/postgres/kube_deploy.yml
+    #- include_tasks: tasks/cockroach/kube_deploy.yml
+    #- include_tasks: tasks/rippler/kube_deploy.yml
+    #- include_tasks: tasks/fxchg/db_setup.yml
+    #- include_tasks: tasks/payid/kube_deploy.yml
+    #- include_tasks: tasks/ilp_bridge/kube_deploy.yml
+    #- include_tasks: tasks/fxchg/kube_deploy.yml
+    #  when: dev_type != "local"
+    - include_tasks: "tasks/ingress/application/{{host}}.yml"

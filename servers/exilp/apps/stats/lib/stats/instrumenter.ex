@@ -19,14 +19,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Service.Application do
-  @moduledoc false
+defmodule Stats.Instrumenter do
+  @moduledoc """
+  """
 
   # ----------------------------------------------------------------------------
   # Module Require, Import and Uses
   # ----------------------------------------------------------------------------
-
-  use Application
+  require Logger
+  use Prometheus.Metric
 
   # ----------------------------------------------------------------------------
   # Module Types
@@ -35,18 +36,60 @@ defmodule Service.Application do
   # ----------------------------------------------------------------------------
   # Module Contants
   # ----------------------------------------------------------------------------
+  # @mod __MODULE__
 
   # ----------------------------------------------------------------------------
-  # Public Api
+  # Public API
   # ----------------------------------------------------------------------------
 
-  @impl true
-  @spec start(any, any) :: {:error, any} | {:ok, pid}
-  def start(_type, _args) do
-    children = []
-    opts = [strategy: :one_for_one, name: Service.Supervisor]
-    Supervisor.start_link(children, opts)
+  def setup do
+    Gauge.declare(
+      name: :exilp_gateway_response_size,
+      help: "The size of the response body sent in a message",
+      labels: [:gauge]
+    )
+
+    Gauge.declare(
+      name: :exilp_gateway_response_codes,
+      help: "The response codes sent in a message",
+      labels: [:gauge]
+    )
+
+    Gauge.declare(
+      name: :exilp_gateway_response_time,
+      help: "The response codes sent in a message",
+      labels: [:gauge]
+    )
+
+    events = [
+      [:gateway, :metric, :start],
+      [:gateway, :metric, :stop]
+    ]
+
+    :telemetry.attach_many("stats-instrumenter", events, &handle_event/4, nil)
+    :ok
   end
+
+  def handle_event([:gateway, :metric, :start], _systemTime, %{conn: _conn}, _config) do
+    :ok
+  end
+
+  def handle_event([:gateway, :metric, :stop], %{duration: time}, %{conn: conn}, _config) do
+    # Critical Info we should know
+    path = conn.request_path
+    Gauge.set([name: :exilp_gateway_response_size, labels: [path]], byte_size(conn.resp_body))
+    Gauge.set([name: :exilp_gateway_response_codes, labels: [path]], conn.status)
+
+    Gauge.set(
+      [name: :exilp_gateway_response_time, labels: [path]],
+      System.convert_time_unit(time, :native, :millisecond)
+    )
+  end
+
+  @doc """
+  """
+  def execute(event, measurement \\ %{}, metadata \\ %{}),
+    do: :telemetry.execute(event, measurement, metadata)
 
   # ----------------------------------------------------------------------------
   # Private API

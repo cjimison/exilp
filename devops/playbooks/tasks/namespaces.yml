@@ -1,0 +1,28 @@
+---
+# Create end environment namespaces
+- name: Deployment Namespace
+  k8s:
+    api_version: v1
+    kind: "Namespace"
+    name: "{{deployment_name}}-{{stage}}"
+    wait: yes
+    state: "{{deployment_state}}"
+
+- name: Create a Linking service
+  k8s:
+    state: "{{deployment_state}}"
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: grafana
+        namespace: "{{deployment_name}}-{{stage}}"
+        annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "3000"
+      spec:
+        type: ExternalName
+        externalName: grafana.monitoring.svc.cluster.local
+        ports:
+          - port: 3000

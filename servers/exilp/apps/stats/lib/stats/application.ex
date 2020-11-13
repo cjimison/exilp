@@ -19,11 +19,35 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule UtilsTest do
-  use ExUnit.Case
-  doctest Utils
+defmodule Stats.Application do
+  @moduledoc false
 
-  # test "greets the world" do
-  #  assert Utils.hello() == :world
-  # end
+  # ----------------------------------------------------------------------------
+  # Module Require, Import and Uses
+  # ----------------------------------------------------------------------------
+  use Application
+
+  # ----------------------------------------------------------------------------
+  # Module Types
+  # ----------------------------------------------------------------------------
+
+  # ----------------------------------------------------------------------------
+  # Module Contants
+  # ----------------------------------------------------------------------------
+  # @mod __MODULE__
+
+  # ----------------------------------------------------------------------------
+  # Public API
+  # ----------------------------------------------------------------------------
+  @impl true
+  @spec start(any, any) :: {:error, any} | {:ok, pid}
+  def start(_type, _args) do
+    children = []
+
+    Stats.Metric.setup()
+    Stats.Instrumenter.setup()
+
+    opts = [strategy: :one_for_one, name: Stats.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
 end

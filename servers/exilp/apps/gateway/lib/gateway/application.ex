@@ -19,7 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Service.Application do
+defmodule Gateway.Application do
   @moduledoc false
 
   # ----------------------------------------------------------------------------
@@ -43,12 +43,42 @@ defmodule Service.Application do
   @impl true
   @spec start(any, any) :: {:error, any} | {:ok, pid}
   def start(_type, _args) do
-    children = []
-    opts = [strategy: :one_for_one, name: Service.Supervisor]
+    children = buildChildren([])
+
+    opts = [strategy: :one_for_one, name: Gateway.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
   # ----------------------------------------------------------------------------
   # Private API
   # ----------------------------------------------------------------------------
+  defp buildChildren(children) do
+    children = enableRouter(children, Gateway.Router.Metric, :metric_enable_tls, :metric_port)
+
+    # Return the children
+    children
+  end
+
+  # Common template of code for setting up a child service as a child node
+  defp enableRouter(children, plugName, tlsEnableName, portName) do
+    httpType =
+      if "false" == Application.get_env(:gateway, tlsEnableName, "false") do
+        :http
+      else
+        :https
+      end
+
+    :ok = plugName.setup()
+
+    [
+      Plug.Cowboy.child_spec(
+        scheme: httpType,
+        plug: plugName,
+        port:
+          Application.get_env(:gateway, portName)
+          |> String.to_integer()
+      )
+      | children
+    ]
+  end
 end

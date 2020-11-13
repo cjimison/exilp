@@ -19,14 +19,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Service.Application do
-  @moduledoc false
+defmodule Stats.Metric do
+  @moduledoc """
+  """
 
   # ----------------------------------------------------------------------------
   # Module Require, Import and Uses
   # ----------------------------------------------------------------------------
-
-  use Application
+  # require Logger
+  use Prometheus.Metric
 
   # ----------------------------------------------------------------------------
   # Module Types
@@ -35,17 +36,29 @@ defmodule Service.Application do
   # ----------------------------------------------------------------------------
   # Module Contants
   # ----------------------------------------------------------------------------
+  # @mod __MODULE__
 
   # ----------------------------------------------------------------------------
-  # Public Api
+  # Public API
   # ----------------------------------------------------------------------------
 
-  @impl true
-  @spec start(any, any) :: {:error, any} | {:ok, pid}
-  def start(_type, _args) do
-    children = []
-    opts = [strategy: :one_for_one, name: Service.Supervisor]
-    Supervisor.start_link(children, opts)
+  @doc """
+  """
+  @spec setup :: :ok
+  def setup() do
+    Counter.declare(
+      name: :exilp_counter_total,
+      help: "Generic Counter",
+      labels: [:counter]
+    )
+
+    Gauge.declare(
+      name: :exilp_gauge_total,
+      help: "Generic Gauge",
+      labels: [:gauge]
+    )
+
+    :ok
   end
 
   # ----------------------------------------------------------------------------

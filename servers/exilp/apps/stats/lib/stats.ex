@@ -19,14 +19,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Service.Application do
-  @moduledoc false
+defmodule Stats do
+  @moduledoc """
+  """
 
   # ----------------------------------------------------------------------------
   # Module Require, Import and Uses
   # ----------------------------------------------------------------------------
-
-  use Application
+  # require Logger
+  use Prometheus.Metric
 
   # ----------------------------------------------------------------------------
   # Module Types
@@ -35,17 +36,58 @@ defmodule Service.Application do
   # ----------------------------------------------------------------------------
   # Module Contants
   # ----------------------------------------------------------------------------
+  # @mod __MODULE__
 
   # ----------------------------------------------------------------------------
-  # Public Api
+  # Public API
   # ----------------------------------------------------------------------------
 
-  @impl true
-  @spec start(any, any) :: {:error, any} | {:ok, pid}
-  def start(_type, _args) do
-    children = []
-    opts = [strategy: :one_for_one, name: Service.Supervisor]
-    Supervisor.start_link(children, opts)
+  @doc """
+  """
+  @spec metrics :: String.t()
+  def metrics(), do: Prometheus.Format.Text.format()
+
+  @spec counter(String.t()) :: :ok
+  def counter(label) do
+    Counter.inc(
+      name: :exilp_counter_total,
+      labels: [label]
+    )
+  end
+
+  @spec counterReset(any) :: boolean
+  def counterReset(label) do
+    Counter.reset(
+      name: :exilp_counter_total,
+      labels: [label]
+    )
+  end
+
+  def gauge(label, value) do
+    Gauge.set([
+        name: :exilp_gauge_total,
+        labels: [label]
+      ],
+      value
+    )
+  end
+
+  def gaugeInc(label, value) do
+    Gauge.inc([
+        name: :exilp_gauge_total,
+        labels: [label]
+      ],
+      value
+    )
+  end
+
+  def gaugeDec(label, value) do
+    Gauge.dec([
+        name: :exilp_gauge_total,
+        labels: [label]
+      ],
+      value
+    )
   end
 
   # ----------------------------------------------------------------------------

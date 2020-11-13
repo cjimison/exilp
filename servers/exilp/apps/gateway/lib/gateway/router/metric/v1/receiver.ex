@@ -19,14 +19,16 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-defmodule Service.Application do
-  @moduledoc false
+defmodule Gateway.Router.Metric.V1.Receiver do
+  @moduledoc """
+  """
 
   # ----------------------------------------------------------------------------
   # Module Require, Import and Uses
   # ----------------------------------------------------------------------------
 
-  use Application
+  require Logger
+  use Plug.Router
 
   # ----------------------------------------------------------------------------
   # Module Types
@@ -36,19 +38,48 @@ defmodule Service.Application do
   # Module Contants
   # ----------------------------------------------------------------------------
 
-  # ----------------------------------------------------------------------------
-  # Public Api
-  # ----------------------------------------------------------------------------
+  @mod __MODULE__
 
-  @impl true
-  @spec start(any, any) :: {:error, any} | {:ok, pid}
-  def start(_type, _args) do
-    children = []
-    opts = [strategy: :one_for_one, name: Service.Supervisor]
-    Supervisor.start_link(children, opts)
+  # ----------------------------------------------------------------------------
+  # Plug options
+  # ----------------------------------------------------------------------------
+  #plug(Plug.Logger, log: :debug)
+
+  plug(Corsica, origins: "*", allow_methods: :all, allow_headers: :all)
+
+  plug(:match)
+
+  plug(:dispatch)
+
+  # ----------------------------------------------------------------------------
+  # Public Node APIs
+  # ----------------------------------------------------------------------------
+  get "/" do
+    put_resp_content_type(conn, "text/plain")
+    |> send_resp(200, Gateway.Router.Metric.Handler.metrics())
+  end
+
+  get "/ping" do
+    send_resp(conn, 200, Gateway.Router.Metric.Handler.ping())
+  end
+
+  match _ do
+    Logger.error("[#{@mod}.match] Unknown path #{inspect(conn)}")
+    send_resp(conn, 404, "Invalid Metric Route")
   end
 
   # ----------------------------------------------------------------------------
   # Private API
   # ----------------------------------------------------------------------------
+  # defp getHeaderValue(conn, val) do
+  #  case conn |> get_req_header(val) do
+  #    [val] -> val
+  #    _ -> nil
+  #  end
+  # end
+  # defp jsonRsp(conn, status, obj) do
+  #   put_resp_content_type(conn, "application/json")
+  #   |> send_resp(status, Jason.encode!(obj))
+  #   |> halt()
+  # end
 end
